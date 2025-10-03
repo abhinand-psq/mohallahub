@@ -6,18 +6,13 @@ import { apiresponse } from "../utils/Api-response.js";
 import { errorresponse } from "../utils/Api-errorresponse.js";
 const userschema = new Schema({
     avatar: {
-      imgurl:{
         type:String,
-        lowercase:true,
         default:'https://placehold.co/300x200',
-      },
-      urlpath:{
-           type:String,
-           lowercase:true,
-           default:''
-      
-    }}
-    ,
+     },
+    bg:{
+      type:String,
+      default:'https://placehold.co/300x200',
+    },
     username: {
       type: String,
       required: true,

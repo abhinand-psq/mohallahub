@@ -1,19 +1,26 @@
 import express from 'express';
 let app = express();
+import fs from 'fs'
 import { apiresponse } from '../utils/Api-response.js';
 import { userinfo } from '../models/user.model.js';
 import { errorresponse } from '../utils/Api-errorresponse.js';
 import { checkmiddleware } from '../middlewares/check.js';
 import { refresh_the_token } from '../middlewares/RefreshTheToken.js';
 import { jwtverification } from '../middlewares/verifyuser.js';
+import { upload } from '../middlewares/multer.middleware.js';
+import { uploadImage } from '../utils/cloudinary.js';
 const { router } = app;
+import path from 'path'
 
-router.get('/', checkmiddleware,(req, res) => {
+router.post('/',upload.fields([{name:"avatar",maxCount:1},{name:"icons",maxCount:1}]),(req, res) => {
   try {
+const avatar= req?.files?.avatar?.[0].path
+const icons= req?.files?.icons?.[0].path
+console.dir(avatar);
+console.log(icons);
     res.send(new apiresponse(200, '', 'name:"abhinnad'));
   } catch (e) {
     console.log(e);
-    
    res.status(401).json(new errorresponse(e,'',401))
   }
 });
@@ -38,7 +45,7 @@ router.get('/getall', async (req, res) => {
   }
 });
 
-export { router };
+
 
 
 router.get('/refreshtoken',jwtverification,refresh_the_token,(req,res,next)=>{
@@ -48,3 +55,7 @@ res.status(200).json({token:"refreshed"})
 
 }
 })
+
+
+
+export { router };

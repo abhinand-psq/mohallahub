@@ -12,7 +12,7 @@ connectdb()
   .then((res) => {
     console.log(res);
     app.listen(connectionport, () => {
-      console.log(
+      console.dir(
         `your coonnection is established http://localhost:${connectionport}`
       );
     });

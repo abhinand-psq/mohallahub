@@ -11,7 +11,9 @@ import { prepareEmail, prepareforgetpassword, transporter } from "../utils/Ready
 import { jwtverification } from "../middlewares/verifyuser.js";
 import { logger } from "../utils/winston.js";
 import {exec} from 'child_process'
-
+import { uploadImage } from "../utils/cloudinary.js";
+import { upload } from "../middlewares/multer.middleware.js";
+import jwt from 'jsonwebtoken'
  
 
 export const CreateRefreshAndAccess =(response) =>{
@@ -34,13 +36,19 @@ const CreateRandomTokenforpassword =(response)=>{
  return {radnomtoken,hashedtoken,expiry}
 }
 
-router.post('/',async(req,res,next)=>{
+router.post('/',upload.fields([{name:'avatar',maxCount:1},{name:'bg',maxCount:1}]),async(req,res,next)=>{
  try{
-const dataweget = await req.body
+const dataweget = await req?.body
+const avatar = await req.files?.avatar?.[0]?.path
+const bg = await req.files?.bg?.[0]?.path
+console.log(avatar,bg);
+const uploadavatar = await uploadImage(avatar)
+const uploadbg = await uploadImage(bg)
 console.log(dataweget);
 const response = new userinfo(dataweget)
 const {radnomtoken,hashedtoken,expiry} = CreateRandomToken(response)
-
+response.bg=uploadbg
+response.avatar=uploadavatar
 let valueweget = await response.save();
 const {htmlemailBody,textemailBody} = prepareEmail(response.username,`http://localhost:8000/signin/v1/emailverfification/${radnomtoken}`)
 await transporter.sendMail({
@@ -105,7 +113,7 @@ router.post('/login',validatebodylogin(),CheckTheValidationResult,async(req,res,
    const {accesstoken,refreshtoken} = CreateRefreshAndAccess(logeduser)
    logeduser.refreshToken = refreshtoken
    logeduser.save()
- return  res.status(200).cookie('accesstoken',accesstoken,{secure:false,httpOnly:true}).cookie('refreshtoken',refreshtoken,{secure:false,httpOnly:true}).json(new apiresponse(200,'scuuess',''))
+ return  res.status(200).cookie('accesstoken',accesstoken,{secure:process.env.cur_env == "production",httpOnly:true}).cookie('refreshtoken',refreshtoken,{secure:false,httpOnly:true}).json(new apiresponse(200,'scuuess',''))
   }
  }catch(e){
   return res.status(200).json(new errorresponse(e.message))
@@ -229,4 +237,34 @@ throw new Error('passowrd is incorrect')
 }
 })
 
-export {router}
+
+
+router.post('/refreshthetoken',async(req,res)=>{
+   try{
+const refreshtoken = req.cookies?.refreshtoken
+   if(!refreshtoken){
+     throw new Error('refresh token is not awailable')
+   }
+  const verfiedtherefresh = jwt.verify(refreshtoken,process.env.Secret)
+if(!verfiedtherefresh){
+ throw new Error('refresh token is invalid')
+}
+ const user = await userinfo.findById(verfiedtherefresh._id)
+ if(!user){
+ throw new Error('user not found')
+}
+if(user.refreshToken !== refreshtoken){
+   throw new Error("token is invalid")
+}
+const newrefreshtoken = user.createrefresh()
+const accesstoken = user.createaccess("user")
+user.refreshToken = newrefreshtoken
+await user.save()
+const newuser = await userinfo.findById(user._id).select('-_id -password -emailVerificationToken -emailVerificationExpiry')
+return res.status(200).cookie('accesstoken',accesstoken,{secure:process.env.cur_env == "production",httpOnly:true}).cookie('refreshtoken',newrefreshtoken,{secure:false,httpOnly:true}).json(new apiresponse(200,newuser,'new access token created'))
+   }catch(e){
+      return res.status(401).json(new errorresponse(e.message,[],401))
+   }
+})
+
+export {router} 
